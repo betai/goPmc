@@ -39,9 +39,14 @@ func New(l uint, m uint, w uint) (*Sketch, error) {
 }
 
 // Algorithm 1 B[H(f,i,j)] = 1
-func (sketch *Sketch) PmcCount(f string) {
-	index := sketch.getIndexF(f)
+func (sketch *Sketch) PmcCount(f string) (error) {
+	index, err := sketch.getIndexF(f)
+	if err != nil {
+		//fmt.Printf("%v\n", err.Error())		
+		return err
+	}
 	sketch.bitmap.Set(index % sketch.l)
+	return nil
 }
 
 // Algorithm 2
@@ -145,15 +150,15 @@ func qk(k float64, n float64, p float64) (float64) {
 }
 
 // Get index into sketch bitmap
-func (sketch *Sketch) getIndexF(f string) (uint) { // TODO: Bubble up the error
+func (sketch *Sketch) getIndexF(f string) (uint, error) { // TODO: Bubble up the error
 	i := uint(rand.Intn(int(sketch.m)))
 	j, err := geometric(sketch.w)
 	if err != nil {
-		fmt.Printf("%v\n", err.Error())
-		return 0  
+//		fmt.Printf("%v\n", err.Error())
+		return 0, err
 	}
 
-	return getIndexFIJ(f, i, j)
+	return getIndexFIJ(f, i, j), err
 }
 
 func getIndexFIJ(f string, i uint, j uint) (uint) {
@@ -179,18 +184,16 @@ func hash(fij string) (uint64) {
 
 // random number generator based of geometric distribution
 func geometric(w uint) (j uint, e error) {
-	if w > 32 || w < 0 {
-		return 0, errors.New("input parameter w to geometric function must be > 0")
+	if w > 32 {
+		return 0, errors.New("input parameter w to geometric function must be < 32") // uint is 32 bit
 	}
+	
+	uniform := rand.Uint32()
 
-	rand.Seed(time.Now().UTC().UnixNano())
-	uniform := uint(rand.Int())
-
-	for i := uint(0); i < w; i++ {
-		if uniform & (1 << uint(i)) != 0 {
-			return j, nil
+	for i := uint32(0); i < uint32(w); i++ {
+		if uniform & (1 << uint32(i)) != 0 {
+			return uint(i), nil
 		}
-		j++
 	}
-	return j, nil
+	return w, nil
 }
