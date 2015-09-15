@@ -38,7 +38,7 @@ func New(l uint64, m uint64, w uint64) (*Sketch, error) {
 }
 
 // Algorithm 1 B[H(f,i,j)] = 1
-func (sketch *Sketch) PmcCount(f string) error {
+func (sketch *Sketch) PmcCount(f []byte) error {
 	index, err := sketch.getIndexF(f)
 	if err != nil {
 		//fmt.Printf("%v\n", err.Error())
@@ -56,7 +56,7 @@ func (sketch *Sketch) PmcCount(f string) error {
 }
 
 // Algorithm 2
-func (sketch *Sketch) getZSum(f string) uint64 {
+func (sketch *Sketch) getZSum(f []byte) uint64 {
 	z := uint64(0)
 	for i := uint64(0); i < sketch.m; i++ {
 		for j := uint64(0); j < sketch.w; j++ {
@@ -70,25 +70,22 @@ func (sketch *Sketch) getZSum(f string) uint64 {
 }
 
 // Algorithm 3
-func (sketch *Sketch) getEmptyRows(f string) uint64 {
+func (sketch *Sketch) getEmptyRows(f []byte) uint64 {
 	k := uint64(0)
 	for i := uint64(0); i < sketch.m; i ++ {
 		if !sketch.bitmap.Test(uint(sketch.getIndexFIJ(f, i, 0))) {
 			k++
 		}
-		if sketch.bitmap.Test(uint(sketch.getIndexFIJ(f, i, 0))) {
-			// fmt.Printf ("non empty row")
-		}
 	}
-	// fmt.Printf("\n")
 	return k
 }
 
 // Algorithm 4
-func (sketch *Sketch) PmcEstimate(f string) (uint64, error) {
+func (sketch *Sketch) PmcEstimate(f []byte) (uint64, error) {
 	k := float64(sketch.getEmptyRows(f))
 	p := sketch.p()
 	m := float64(sketch.m)
+	phi := sketch.phi(p)
 
 	estimate := 0.0
 	
@@ -101,7 +98,7 @@ func (sketch *Sketch) PmcEstimate(f string) (uint64, error) {
 			return 0, errors.New("sketch.n should be positive")
 		}
 		z := float64(sketch.getZSum(f))
-		estimate = m*math.Pow(2, z/m)/sketch.phi(p)
+		estimate = m*math.Pow(2, z/m)/phi
 	}
 
 	estimate = math.Ceil(math.Abs(estimate))
@@ -165,8 +162,8 @@ func qk(k float64, n float64, p float64) float64 {
 }
 
 // Get index into sketch bitmap
-func (sketch *Sketch) getIndexF(f string) (uint64, error) {
-	i := uint64(rand.Int63n(int64(sketch.m))) % sketch.m
+func (sketch *Sketch) getIndexF(f []byte) (uint64, error) {
+	i := uniform(sketch.m)
 	j, err := geometric(sketch.w)
 	if err != nil {
 //		fmt.Printf("%v\n", err.Error())
@@ -176,8 +173,12 @@ func (sketch *Sketch) getIndexF(f string) (uint64, error) {
 	return sketch.getIndexFIJ(f, i, j), err
 }
 
-func (sketch *Sketch) getIndexFIJ(f string, i uint64, j uint64) uint64 {
-	return farm.Hash64WithSeeds([]byte(f), i, j) % sketch.l
+func (sketch *Sketch) getIndexFIJ(f []byte, i uint64, j uint64) uint64 {
+	return farm.Hash64WithSeeds(f, i, j) % sketch.l
+}
+
+func uniform (m uint64) uint64 {
+	return uint64(rand.Int63n(int64(m))) % m
 }
 
 // random number generator based of geometric distribution
