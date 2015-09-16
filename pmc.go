@@ -31,8 +31,8 @@ type Sketch struct {
 func New(l uint64, m uint64, w uint64) (*Sketch, error) {
  	if l == 0 || m == 0 || w == 0 {
 		return nil, errors.New("All parameters must be > 0")
-	} else if l > (1 << w) || l > (1 << 32){
-		return nil, errors.New("l must be < 2**w and <= 2**32")
+	} else if l > (1 << w) || l > (1 << 63){
+		return nil, errors.New("l must be < 2**w and < 2**64")
 	}
 	return &Sketch{l: l, m: m, w: w, bitmap: bitset.New(uint(l)), changed: true}, nil
 }
@@ -41,7 +41,7 @@ func New(l uint64, m uint64, w uint64) (*Sketch, error) {
 func (sketch *Sketch) PmcCount(f []byte) error {
 	index, err := sketch.getIndexF(f)
 	if err != nil {
-		//fmt.Printf("%v\n", err.Error())
+		// fmt.Printf("%v\n", err.Error())
 		return err
 	}
 	if sketch.bitmap.Test(uint(index) % uint(sketch.l)) {
@@ -50,6 +50,7 @@ func (sketch *Sketch) PmcCount(f []byte) error {
 		return nil
 	}
 
+	sketch.n++
 	sketch.changed = true
 	sketch.bitmap.Set(uint(index) % uint(sketch.l))
 	return nil
@@ -90,20 +91,20 @@ func (sketch *Sketch) PmcEstimate(f []byte) (uint64, error) {
 	estimate := 0.0
 	
 	if kp := k/(1 - p); kp > 0.3*m {
-		//fmt.Println("Small multiplicity")
+		// fmt.Println("Small multiplicity")
 		estimate = -2*m*math.Log(kp/m)
 	} else {
-		//fmt.Println("large multiplicity")		
+		// fmt.Println("large multiplicity")
 		if sketch.n <= 0 {
 			return 0, errors.New("sketch.n should be positive")
 		}
 		z := float64(sketch.getZSum(f))
 		estimate = m*math.Pow(2, z/m)/phi
+		// fmt.Printf("z = %v \tphi = %v\n", z, phi)
 	}
 
 	estimate = math.Ceil(math.Abs(estimate))
-	sketch.n = uint64(estimate)
-	return sketch.n, nil
+	return uint64(estimate), nil
 }
 
 
@@ -118,6 +119,25 @@ func (sketch *Sketch) PrintBitmap() {
 		}
 	}
 	fmt.Printf("Total: %v\n", count)
+}
+
+
+func (sketch *Sketch) PrintVirtualMatrix(flow []byte) {
+	for i := uint64(0); i < sketch.m; i++ {
+		for j := uint64(0); j < sketch.w; j++ {
+			pos := sketch.getIndexFIJ(flow, i, j)
+			if sketch.bitmap.Test(uint(pos)) {
+				fmt.Print(1)
+			} else {
+				fmt.Print(0)
+			}
+		}
+		fmt.Println("")
+	}
+}
+
+func (sketch *Sketch) GetFillRate() float64 {
+	return sketch.p() * 100
 }
 
 /**** Private Helpers ****/
@@ -141,6 +161,7 @@ func (sketch *Sketch) phi(p float64) float64 {
 	if n >= n_max {
 		return phi_const
 	}
+	// fmt.Printf("n = %v, sketch.expZ(n, p) = %v\n", n, sketch.expZ(n, p))
 	return math.Pow(2, sketch.expZ(n, p))/n
 }
 
@@ -181,10 +202,10 @@ func uniform (m uint64) uint64 {
 	return uint64(rand.Int63n(int64(m))) % m
 }
 
-// random number generator based of geometric distribution
+// random number generator based off a geometric distribution
 func geometric(w uint64) (j uint64, e error) {
 	if w > 64 {
-		return 0, errors.New("input parameter w to geometric function must be <= 64") // uint64 is 64 bit
+		return 0, errors.New("input parameter w to Geometric function must be <= 64") // uint64 is 64 bit
 	}
 	uniform := rand.Uint32()
 
