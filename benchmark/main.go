@@ -17,7 +17,7 @@ func main() {
 	r := csv.NewReader(file)
 	r.Comma = ';'
 
-	l := uint64(18e6)
+	l := uint64(8e7)
 	m := uint64(64)
 	w := uint64(32)
 	
@@ -48,7 +48,7 @@ func main() {
 		counts, _ := strconv.ParseFloat(record[1], 64)
 		
 		for i := 0.0; i < counts; i++ {
-			if x <= 51 { // just take the first 50
+			if x <= 11 { // just take the first 10
 				multiset.Add(id)
 			}
 			pmc.PmcCount([]byte(id))
@@ -67,7 +67,8 @@ func main() {
 			fmt.Println(err.Error())
 		}
 
-		actual := float64(multiset.Get(key))
+		count, _ := multiset.Get(key)
+		actual := float64(count)
 		diff := 100*math.Abs(float64(est) - actual)/actual
 		
 		if diff > max {

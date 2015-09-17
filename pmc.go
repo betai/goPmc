@@ -31,7 +31,7 @@ type Sketch struct {
 func New(l uint64, m uint64, w uint64) (*Sketch, error) {
  	if l == 0 || m == 0 || w == 0 {
 		return nil, errors.New("All parameters must be > 0")
-	} else if l > (1 << w) || l > (1 << 63){
+	} else if l > (1 << w) - 1 || l > (1 << 64) - 1 {
 		return nil, errors.New("l must be < 2**w and < 2**64")
 	}
 	return &Sketch{l: l, m: m, w: w, bitmap: bitset.New(uint(l)), changed: true}, nil
@@ -62,7 +62,7 @@ func (sketch *Sketch) getZSum(f []byte) uint64 {
 	for i := uint64(0); i < sketch.m; i++ {
 		for j := uint64(0); j < sketch.w; j++ {
 			if !sketch.bitmap.Test(uint(sketch.getIndexFIJ(f, i, j))) {
-				z += j - 1
+				z += j
 				break
 			}
 		}

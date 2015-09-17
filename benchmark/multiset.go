@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 )
 
 type Multiset struct {
@@ -25,7 +26,8 @@ func (multiset *Multiset) Add(key string) {
 }
 
 func (multiset *Multiset) Get(key string) (int, bool) {
-	return multiset.set[key]
+	count, alreadyIn := multiset.set[key]
+	return count, alreadyIn
 }
 
 
@@ -34,6 +36,7 @@ func (multiset *Multiset) Keys() []string {
 	for key, _ := range multiset.set {
 		keys = append(keys, key)
 	}
+	sort.Strings(keys)
 	return keys
 }
 
